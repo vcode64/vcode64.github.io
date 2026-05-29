@@ -3,19 +3,347 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My First Page</title>
+  <title>Ultimate Tic Tac Toe</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
     body {
+      background: radial-gradient(circle at center, #232342, #10101c);
+      min-height: 100vh;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      height: 100vh;
-      margin: 0;
-      font-family: sans-serif;
+      justify-content: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #eee;
+      padding: 20px;
     }
+
+    h1 { font-size: 2.2rem; margin-bottom: 10px; letter-spacing: 2px; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    
+    #status {
+      font-size: 1.2rem;
+      color: #f0c040;
+      margin-bottom: 20px;
+      min-height: 1.5em;
+      text-align: center;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    #macro {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 8px;
+      background: rgba(40, 40, 60, 0.6);
+      padding: 8px;
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .macro-cell {
+      width: 150px; 
+      height: 150px;
+      background: #2a2a4a;
+      border-radius: 8px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr); /* BUG FIX: Forces rows to stay rigid */
+      gap: 4px;
+      padding: 4px;
+      position: relative;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    .macro-cell.active { 
+      background: #2f3e63; 
+      outline: 3px solid #f0c040;
+      outline-offset: 2px;
+      animation: pulseActive 2s infinite alternate;
+    }
+
+    @keyframes pulseActive {
+      0% { box-shadow: 0 0 5px rgba(240, 192, 64, 0.2); }
+      100% { box-shadow: 0 0 20px rgba(240, 192, 64, 0.7); }
+    }
+
+    /* overlay for won/drawn macro cells */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: none; /* Controlled by JS now */
+      align-items: center;
+      justify-content: center;
+      font-size: 6rem;
+      font-weight: bold;
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .overlay.show {
+      display: flex;
+      animation: stampIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @keyframes stampIn {
+      0% { transform: scale(1.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .macro-cell.won-X .overlay { background: rgba(30, 58, 30, 0.85); color: #4ecca3; text-shadow: 0 0 20px #4ecca3; }
+    .macro-cell.won-O .overlay { background: rgba(58, 30, 30, 0.85); color: #ff6b6b; text-shadow: 0 0 20px #ff6b6b; }
+    .macro-cell.drawn .overlay { background: rgba(42, 42, 42, 0.85); color: #aaa; }
+
+    .mini-cell {
+      background: #1a1a2e;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      font-weight: bold;
+      transition: background 0.2s;
+      overflow: hidden;
+    }
+
+    .mini-cell.clickable { cursor: pointer; }
+    .mini-cell.clickable:hover { background: #3f3f7a; transform: scale(1.05); }
+
+    .mini-cell.x { color: #4ecca3; cursor: default; text-shadow: 0 0 8px rgba(78, 204, 163, 0.6); }
+    .mini-cell.o { color: #ff6b6b; cursor: default; text-shadow: 0 0 8px rgba(255, 107, 107, 0.6); }
+
+    /* Piece placement animation */
+    .mini-cell.pop {
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.3); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    #restart {
+      margin-top: 25px;
+      padding: 12px 35px;
+      font-size: 1.1rem;
+      background: linear-gradient(135deg, #f0c040, #d4a017);
+      color: #1a1a2e;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      letter-spacing: 1px;
+      transition: transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 4px 15px rgba(240, 192, 64, 0.3);
+    }
+
+    #restart:hover { 
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(240, 192, 64, 0.5);
+    }
+    
+    #restart:active { transform: translateY(1px); }
+
+    #legend {
+      margin-top: 15px;
+      font-size: 0.9rem;
+      color: #aaa;
+      text-align: center;
+      background: rgba(0,0,0,0.2);
+      padding: 8px 16px;
+      border-radius: 20px;
+    }
+
+    .x-color { color: #4ecca3; font-weight: bold; }
+    .o-color { color: #ff6b6b; font-weight: bold; }
   </style>
 </head>
 <body>
-  <h1>Hello, World!</h1>
+  <h1>Ultimate Tic Tac Toe</h1>
+  <div id="status"></div>
+  <div id="macro"></div>
+  <button id="restart">Restart</button>
+  <div id="legend">
+    <span class="x-color">X</span> = Player 1 &nbsp;|&nbsp;
+    <span class="o-color">O</span> = Player 2 &nbsp;|&nbsp;
+    <span style="color:#f0c040;">Gold border</span> = Active board
+  </div>
+
+<script>
+  // State
+  let macroBoard;  
+  let miniBoards;  
+  let turn;        
+  let nextMacro;   
+  let gameOver;
+
+  const WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+  function checkWinner(cells) {
+    for (let [a,b,c] of WINS)
+      if (cells[a] && cells[a] === cells[b] && cells[a] === cells[c]) return cells[a];
+    if (cells.every(Boolean)) return 'D';
+    return null;
+  }
+
+  function macroFlat() {
+    return macroBoard.flat();
+  }
+
+  function init() {
+    macroBoard = Array.from({length:3}, () => Array(3).fill(null));
+    miniBoards = Array.from({length:3}, () =>
+      Array.from({length:3}, () =>
+        Array.from({length:3}, () => Array(3).fill(null))
+      )
+    );
+    turn = 'X';
+    nextMacro = null;
+    gameOver = false;
+    
+    buildDOM();
+    render();
+  }
+
+  // Builds the HTML framework exactly ONCE so animations aren't destroyed on every turn
+  function buildDOM() {
+    const macro = document.getElementById('macro');
+    macro.innerHTML = '';
+    
+    for (let mr = 0; mr < 3; mr++) {
+      for (let mc = 0; mc < 3; mc++) {
+        const cell = document.createElement('div');
+        cell.id = `macro-${mr}-${mc}`;
+        cell.className = 'macro-cell';
+
+        // mini grid
+        for (let sr = 0; sr < 3; sr++) {
+          for (let sc = 0; sc < 3; sc++) {
+            const mini = document.createElement('div');
+            mini.id = `mini-${mr}-${mc}-${sr}-${sc}`;
+            mini.className = 'mini-cell';
+            mini.addEventListener('click', () => play(mr, mc, sr, sc));
+            cell.appendChild(mini);
+          }
+        }
+
+        // overlay
+        const ov = document.createElement('div');
+        ov.id = `overlay-${mr}-${mc}`;
+        ov.className = 'overlay';
+        cell.appendChild(ov);
+
+        macro.appendChild(cell);
+      }
+    }
+  }
+
+  function play(mr, mc, sr, sc) {
+    if (gameOver) return;
+    if (macroBoard[mr][mc]) return;
+    if (nextMacro && (nextMacro[0] !== mr || nextMacro[1] !== mc)) return;
+    if (miniBoards[mr][mc][sr][sc]) return;
+
+    // Place piece
+    miniBoards[mr][mc][sr][sc] = turn;
+
+    // Check mini winner
+    const miniWin = checkWinner(miniBoards[mr][mc].flat());
+    if (miniWin) macroBoard[mr][mc] = miniWin;
+
+    // Check macro winner
+    const macroWin = checkWinner(macroFlat());
+    if (macroWin && macroWin !== 'D') {
+      gameOver = true;
+      render();
+      setStatus((macroWin === 'X' ? '🟢 Player 1 (X)' : '🔴 Player 2 (O)') + ' wins the game! 🎉');
+      return;
+    }
+    if (macroFlat().every(Boolean)) {
+      gameOver = true;
+      render();
+      setStatus("It's a draw! 🤝");
+      return;
+    }
+
+    // Determine next board
+    const target = [sr, sc];
+    if (macroBoard[target[0]][target[1]]) {
+      nextMacro = null; // target board is taken, play anywhere
+    } else {
+      nextMacro = target;
+    }
+    
+    turn = turn === 'X' ? 'O' : 'X';
+    render();
+  }
+
+  function setStatus(msg) {
+    document.getElementById('status').textContent = msg;
+  }
+
+  function isActive(mr, mc) {
+    if (gameOver || macroBoard[mr][mc]) return false;
+    if (nextMacro === null) return true;
+    return nextMacro[0] === mr && nextMacro[1] === mc;
+  }
+
+  // Only updates attributes/classes instead of recreating DOM nodes
+  function render() {
+    for (let mr = 0; mr < 3; mr++) {
+      for (let mc = 0; mc < 3; mc++) {
+        const cell = document.getElementById(`macro-${mr}-${mc}`);
+        const ov = document.getElementById(`overlay-${mr}-${mc}`);
+        const won = macroBoard[mr][mc];
+
+        // Update Macro Cell state
+        cell.className = 'macro-cell';
+        if (won) {
+          cell.classList.add(won === 'D' ? 'drawn' : 'won-' + won);
+          ov.textContent = won === 'D' ? '—' : won;
+          ov.classList.add('show');
+        } else if (isActive(mr, mc)) {
+          cell.classList.add('active');
+          ov.classList.remove('show');
+        } else {
+            ov.classList.remove('show');
+        }
+
+        // Update Mini Cells
+        for (let sr = 0; sr < 3; sr++) {
+          for (let sc = 0; sc < 3; sc++) {
+            const mini = document.getElementById(`mini-${mr}-${mc}-${sr}-${sc}`);
+            const val = miniBoards[mr][mc][sr][sc];
+
+            if (val && !mini.classList.contains('taken')) {
+                // First time piece is being rendered, add the pop animation class
+                mini.textContent = val;
+                mini.className = `mini-cell taken pop ${val === 'X' ? 'x' : 'o'}`;
+            } else if (!val) {
+                // Empty cell
+                mini.className = 'mini-cell';
+                if (!won && isActive(mr, mc)) {
+                    mini.classList.add('clickable');
+                }
+            }
+          }
+        }
+      }
+    }
+
+    if (!gameOver) {
+      const who = turn === 'X' ? '🟢 Player 1 (X)' : '🔴 Player 2 (O)';
+      const where = nextMacro === null ? 'ANY active board' : `board (row ${nextMacro[0]+1}, col ${nextMacro[1]+1})`;
+      setStatus(`${who}'s turn — play in ${where}`);
+    }
+  }
+
+  document.getElementById('restart').addEventListener('click', init);
+  init();
+</script>
 </body>
 </html>
